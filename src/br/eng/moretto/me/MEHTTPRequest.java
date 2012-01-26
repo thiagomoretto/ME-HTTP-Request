@@ -31,6 +31,7 @@ public class MEHTTPRequest {
     MEHTTPRequest.Listener didRequestFailedListener = null;
     MEHTTPRequest.Listener didRequestRedirectedListener = null;
     boolean shouldFollowRedirects = true;
+    boolean shouldAllowResumeDownloads = false;
     int redirectionsCount = 0;
     private Map<String, String> requestAdditionalHeaders = new HashMap<String, String>();
 
@@ -39,6 +40,9 @@ public class MEHTTPRequest {
     int responseCode;
     private String responseData;
     private Map<String, List<String>> headers;
+
+    // stats
+    int totalContentReaded = 0;
 
     public MEHTTPRequest(URL url) {
         this.url = url;
@@ -64,6 +68,11 @@ public class MEHTTPRequest {
         return this;
     }
 
+    public MEHTTPRequest setShouldAllowResumeDownloads(boolean shouldAllowResumeDownloads) {
+        this.shouldAllowResumeDownloads = shouldAllowResumeDownloads;
+        return this;
+    }
+
     public MEHTTPRequest addHeader(String name, String value) {
         requestAdditionalHeaders.put(name, value);
         return this;
@@ -84,6 +93,10 @@ public class MEHTTPRequest {
                 makeRequest(url);
             }
         }.start();
+    }
+
+    public int getTotalContentReaded() {
+        return totalContentReaded;
     }
 
     public int getResponseCode() {
@@ -111,7 +124,14 @@ public class MEHTTPRequest {
                 urlConnection
                     .addRequestProperty(requestHeaderName, requestAdditionalHeaders.get(requestHeaderName));
 
+            if (shouldAllowResumeDownloads && destinationPath != null) {
+                File fd = new File(destinationPath);
+                if (fd.isFile())
+                    urlConnection.setRequestProperty("Range", "bytes=" + fd.length() + "-");
+            }
+
             urlConnection.connect();
+
             if (shouldFollowRedirects &&
                     urlConnection.getResponseCode() == HttpURLConnection.HTTP_MOVED_TEMP ||
                     urlConnection.getResponseCode() == HttpURLConnection.HTTP_MOVED_PERM ||
@@ -138,19 +158,7 @@ public class MEHTTPRequest {
                     File fd = new File(destinationPath);
                     if (fd.isDirectory())
                         throw new Exception("Destination path is a directory. Please, append a file name.");
-                    BufferedOutputStream bufout = 
-                        new BufferedOutputStream(
-                            new FileOutputStream(fd));
-                    BufferedInputStream bufin = new BufferedInputStream(urlConnection.getInputStream());
-                    urlConnection.getContentLength();
-                    int count;
-                    byte[] buf = new byte[1024];
-                    while ((count = bufin.read(buf)) != -1) {
-                        bufout.write(buf, 0, count);
-                    }
-                    bufout.flush();
-                    bufout.close();
-                    bufin.close();
+                    saveToDestination(fd, urlConnection, shouldAllowResumeDownloads);
                 }
                 else
                 {
@@ -174,9 +182,35 @@ public class MEHTTPRequest {
         }
         catch (Exception e)
         {
-            e.printStackTrace();
             exception = e;
             callListenerIfPresent(didRequestFailedListener);
+        }
+    }
+
+    private void saveToDestination(File fd, HttpURLConnection urlConnection, boolean append) throws Exception
+    {
+        totalContentReaded = 0;
+        BufferedOutputStream bufout = null; BufferedInputStream bufin = null;
+        try
+        {
+            bufout = new BufferedOutputStream(new FileOutputStream(fd, append));
+            bufin = new BufferedInputStream(urlConnection.getInputStream());
+            urlConnection.getContentLength();
+            int count;
+            byte[] buf = new byte[1024];
+            while ((count = bufin.read(buf)) != -1)
+            {
+                bufout.write(buf, 0, count);
+                totalContentReaded += count;
+            }
+            bufout.flush();
+        }
+        finally
+        {
+            if (bufout != null)
+                bufout.close();
+            if (bufin != null)
+                bufin.close();
         }
     }
 

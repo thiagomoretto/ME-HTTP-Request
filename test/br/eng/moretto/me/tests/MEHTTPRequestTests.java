@@ -110,6 +110,50 @@ public class MEHTTPRequestTests {
         Assert.assertTrue(new File("/tmp/temp_file").exists());
         Assert.assertTrue(stdOutRequestDidFinishedListenerWasCalled);
     }
+    
+    @Test
+    public void shouldMakeGetRequestAndSaveContentOfFileAllowingResume() throws MalformedURLException 
+    {
+        httpTestServer.setMockResponseCode(200);
+        httpTestServer.setMockContentType("image/jpeg");
+        httpTestServer.setMockResponseFile("fixtures/internet.jpg");
+        httpTestServer.setMockStopDownloadAtByte(1024);
+
+        URL testURL = new URL(urlString);
+        MEHTTPRequest request = new MEHTTPRequest(testURL);
+        request .setShouldFollowRedirects(true)
+                .setDidRequestRedirectedListener(stdOutRequestDidRedirectedListener)
+                .setDidRequestFinishedListener(stdOutRequestDidFinishedListener)
+                .setDidRequestFailedListener(stdErrRequestDidFailedListener)
+                .setDownloadDestinationPath("/tmp/temp_file_resume.jpg")
+                .startSynchronous();
+
+        File fi = new File("fixtures/internet.jpg");
+        File fd = new File("/tmp/temp_file_resume.jpg");
+
+        Assert.assertEquals(200, request.getResponseCode());
+        Assert.assertTrue(fd.exists());
+        Assert.assertEquals(1024, fd.length());
+        Assert.assertTrue(stdOutRequestDidFinishedListenerWasCalled);
+
+        httpTestServer.setMockStopDownloadAtByte(-1);
+
+        // letus create a new http request and resume download.
+        request = new MEHTTPRequest(testURL);
+        request .setShouldFollowRedirects(true)
+                .setDidRequestRedirectedListener(stdOutRequestDidRedirectedListener)
+                .setDidRequestFinishedListener(stdOutRequestDidFinishedListener)
+                .setDidRequestFailedListener(stdErrRequestDidFailedListener)
+                .setDownloadDestinationPath("/tmp/temp_file_resume.jpg")
+                .setShouldAllowResumeDownloads(true)
+                .startSynchronous();
+        
+        fd = new File("/tmp/temp_file_resume.jpg");
+        
+        Assert.assertEquals(200, request.getResponseCode());
+        Assert.assertEquals(fi.length(), fd.length());
+        Assert.assertEquals(fi.length() - 1024, request.getTotalContentReaded());
+    }
 
     private void printHeaders(Map<String, List<String>> headers)
     {

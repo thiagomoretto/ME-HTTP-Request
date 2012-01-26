@@ -1,6 +1,9 @@
 package br.eng.moretto.me.tests;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -28,6 +31,9 @@ public class HttpTestServer {
 
     private int _mockResponseCode = 200;
     private String _mockResponseData;
+    private String _mockContentType;
+    private String _mockFile;
+    private int _mockStopDownloadAtByte = -1;
 
     public HttpTestServer() {
     }
@@ -62,8 +68,36 @@ public class HttpTestServer {
                 Request baseRequest = request instanceof Request ? (Request) request : HttpConnection.getCurrentConnection().getRequest();
                 setResponseBody(getMockResponseData());
                 response.setStatus(_mockResponseCode);
-                response.setContentType("text/plain;charset=utf-8");
-                response.getOutputStream().write(_mockResponseData.getBytes());
+                if (_mockContentType != null)
+                    response.setContentType(_mockContentType);
+                else
+                    response.setContentType("text/plain;charset=utf-8");
+
+                int range = 0;
+                String rangeHeader = baseRequest.getHeader("Range");
+                if (rangeHeader != null)
+                    range = Integer.parseInt(rangeHeader.split("=")[1].replace("-", ""));
+
+                if (_mockFile != null)
+                {
+                    File fd = new File(_mockFile);
+                    FileInputStream fis = new FileInputStream(fd);
+                    byte[] b = new byte[1];
+                    OutputStream os = response.getOutputStream();
+                    int count = 0;
+                    while (fis.read(b) != -1) {
+                        if (count >= range)
+                            os.write((byte) b[0]);
+                        count ++;
+                        if(_mockStopDownloadAtByte != -1 &&
+                           _mockStopDownloadAtByte == count) {
+                            break;
+                        }
+                    }
+                    os.flush();
+                } else {
+                    response.getOutputStream().write(_mockResponseData.getBytes());
+                }
                 baseRequest.setHandled(true);
             }
         };
@@ -113,5 +147,17 @@ public class HttpTestServer {
 
     protected Server getServer() {
         return _server;
+    }
+
+    public void setMockContentType(String mockContentType) {
+        _mockContentType = mockContentType;
+    }
+
+    public void setMockResponseFile(String mockFile) {
+        _mockFile = mockFile;
+    }
+
+    public void setMockStopDownloadAtByte(int mockStopDownloadAtByte) {
+        this._mockStopDownloadAtByte = mockStopDownloadAtByte;
     }
 }
