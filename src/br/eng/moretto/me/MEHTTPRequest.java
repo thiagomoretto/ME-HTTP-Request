@@ -8,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
@@ -27,6 +28,7 @@ public class MEHTTPRequest {
     // request
     URL url;
     String destinationPath = null;
+    OutputStream destinationOutputStream = null;
     MEHTTPRequest.Listener didRequestFinishedListener = null;
     MEHTTPRequest.Listener didRequestFailedListener = null;
     MEHTTPRequest.Listener didRequestRedirectedListener = null;
@@ -64,7 +66,14 @@ public class MEHTTPRequest {
     }
 
     public MEHTTPRequest setDownloadDestinationPath(String path) {
+        this.destinationOutputStream = null;
         this.destinationPath = path;
+        return this;
+    }
+
+    public MEHTTPRequest setDestinationOutputStream(OutputStream destinationOutputStream) {
+        this.destinationPath = null;
+        this.destinationOutputStream = destinationOutputStream;
         return this;
     }
 
@@ -153,12 +162,18 @@ public class MEHTTPRequest {
                 callListenerIfPresent(didRequestRedirectedListener);
             }
             else {
-                if (destinationPath != null)
+                if (destinationOutputStream != null)
+                {
+                    saveToOutputStream(urlConnection);
+                    callListenerIfPresent(didRequestFinishedListener);
+                }
+                else if (destinationPath != null)
                 {
                     File fd = new File(destinationPath);
                     if (fd.isDirectory())
                         throw new Exception("Destination path is a directory. Please, append a file name.");
                     saveToDestination(fd, urlConnection, shouldAllowResumeDownloads);
+                    callListenerIfPresent(didRequestFinishedListener);
                 }
                 else
                 {
@@ -184,6 +199,31 @@ public class MEHTTPRequest {
         {
             exception = e;
             callListenerIfPresent(didRequestFailedListener);
+        }
+    }
+
+    private void saveToOutputStream(HttpURLConnection urlConnection) throws IOException {
+        totalContentReaded = 0;
+        BufferedInputStream bufin = null;
+        try
+        {
+            bufin = new BufferedInputStream(urlConnection.getInputStream());
+            urlConnection.getContentLength();
+            int count;
+            byte[] buf = new byte[1024];
+            while ((count = bufin.read(buf)) != -1)
+            {
+                destinationOutputStream.write(buf, 0, count);
+                totalContentReaded += count;
+            }
+            destinationOutputStream.flush();
+        }
+        finally
+        {
+            if (destinationOutputStream != null)
+                destinationOutputStream.close();
+            if (bufin != null)
+                bufin.close();
         }
     }
 

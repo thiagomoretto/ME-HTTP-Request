@@ -1,6 +1,8 @@
 package br.eng.moretto.me.tests;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
@@ -153,6 +155,26 @@ public class MEHTTPRequestTests {
         Assert.assertEquals(200, request.getResponseCode());
         Assert.assertEquals(fi.length(), fd.length());
         Assert.assertEquals(fi.length() - 1024, request.getTotalContentReaded());
+    }
+    
+    @Test
+    public void shouldMakeGetRequestAndWriteContentToFileOutputStream() throws MalformedURLException, FileNotFoundException {
+        httpTestServer.setMockResponseCode(200);
+
+        FileOutputStream fous = new FileOutputStream(new File("/tmp/temp_file_os"));
+
+        URL testURL = new URL(urlString);
+        MEHTTPRequest request = new MEHTTPRequest(testURL);
+        request .setShouldFollowRedirects(true)
+                .setDidRequestRedirectedListener(stdOutRequestDidRedirectedListener)
+                .setDidRequestFinishedListener(stdOutRequestDidFinishedListener)
+                .setDidRequestFailedListener(stdErrRequestDidFailedListener)
+                .setDestinationOutputStream(fous)
+                .startSynchronous();
+
+        Assert.assertEquals(200, request.getResponseCode());
+        Assert.assertTrue(new File("/tmp/temp_file_os").exists());
+        Assert.assertTrue(stdOutRequestDidFinishedListenerWasCalled);
     }
 
     private void printHeaders(Map<String, List<String>> headers)
