@@ -61,12 +61,9 @@ public class HttpTestServer {
             public void handle(String target, HttpServletRequest request, HttpServletResponse response, int dispatch) throws IOException, ServletException {
                 Request baseRequest = request instanceof Request ? (Request) request : HttpConnection.getCurrentConnection().getRequest();
                 setResponseBody(getMockResponseData());
-                // setRequestBody(IOUtils.toString(baseRequest.getInputStream()));
-                setResponseBody("OK");
                 response.setStatus(_mockResponseCode);
-                response.setContentType("text/xml;charset=utf-8");
-                // write(getResponseBody(), response.getOutputStream());
-                response.getOutputStream().write("OK".getBytes());
+                response.setContentType("text/plain;charset=utf-8");
+                response.getOutputStream().write(_mockResponseData.getBytes());
                 baseRequest.setHandled(true);
             }
         };

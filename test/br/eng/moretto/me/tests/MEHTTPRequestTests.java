@@ -58,16 +58,34 @@ public class MEHTTPRequestTests {
     }
 
     @Test
-    public void shouldMakeGetRequest() throws MalformedURLException {
-        httpTestServer.setMockResponseCode(304);
-
+    public void shouldMakeGetRequestReceiveOk() throws MalformedURLException {
+        httpTestServer.setMockResponseCode(200);
+        httpTestServer.setMockResponseData("MY OMG DATA");
         URL testURL = new URL(urlString);
         MEHTTPRequest request = new MEHTTPRequest(testURL);
         request .setShouldFollowRedirects(true)
                 .setDidRequestRedirectedListener(stdOutRequestDidRedirectedListener)
                 .setDidRequestFinishedListener(stdOutRequestDidFinishedListener)
                 .setDidRequestFailedListener(stdErrRequestDidFailedListener);
-        request.addHeader("X-Gerupad-Aduid", "FOOBAR");
+        request.addHeader("X-MyProduct-HEADER", "FOOBAR");
+        request.startSynchronous();
+        printHeaders(request.getHeaders());
+
+        Assert.assertEquals(200, request.getResponseCode());
+        Assert.assertEquals("MY OMG DATA", request.getResponseData());
+        Assert.assertTrue(stdOutRequestDidFinishedListenerWasCalled);
+    }
+
+    @Test
+    public void shouldMakeGetRequestReceiveNotModified() throws MalformedURLException {
+        httpTestServer.setMockResponseCode(304);
+        URL testURL = new URL(urlString);
+        MEHTTPRequest request = new MEHTTPRequest(testURL);
+        request .setShouldFollowRedirects(true)
+                .setDidRequestRedirectedListener(stdOutRequestDidRedirectedListener)
+                .setDidRequestFinishedListener(stdOutRequestDidFinishedListener)
+                .setDidRequestFailedListener(stdErrRequestDidFailedListener);
+        request.addHeader("X-MyProduct-HEADER", "FOOBAR");
         request.startSynchronous();
         printHeaders(request.getHeaders());
 

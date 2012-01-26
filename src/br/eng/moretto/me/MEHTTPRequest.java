@@ -2,9 +2,15 @@ package br.eng.moretto.me;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.HashMap;
@@ -31,6 +37,7 @@ public class MEHTTPRequest {
     // response
     Exception exception = null;
     int responseCode;
+    private String responseData;
     private Map<String, List<String>> headers;
 
     public MEHTTPRequest(URL url) {
@@ -81,6 +88,10 @@ public class MEHTTPRequest {
 
     public int getResponseCode() {
         return responseCode;
+    }
+
+    public String getResponseData() {
+        return responseData;
     }
 
     public Exception getException() {
@@ -141,7 +152,22 @@ public class MEHTTPRequest {
                     bufout.close();
                     bufin.close();
                 }
+                else
+                {
+                    Writer writer = new StringWriter();
+                    String encoding = urlConnection.getContentEncoding();
+                    if (encoding == null)
+                        encoding = "UTF-8";
 
+                    InputStream is = (InputStream) urlConnection.getContent();
+                    Reader reader = new BufferedReader(new InputStreamReader(is, encoding));
+                    char[] buf = new char[1024];
+                    int count;
+                    while ((count = reader.read(buf)) != -1) {
+                        writer.write(buf, 0, count);
+                    }
+                    responseData = writer.toString();
+                }
                 prepareResponse(urlConnection);
                 callListenerIfPresent(didRequestFinishedListener);
             }
