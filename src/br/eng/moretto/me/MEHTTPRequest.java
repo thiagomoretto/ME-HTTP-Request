@@ -181,12 +181,14 @@ public class MEHTTPRequest {
                 callListenerIfPresent(didRequestRedirectedListener);
             }
             else {
-                if (destinationOutputStream != null)
+                if (urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK 
+                        && destinationOutputStream != null)
                 {
                     saveToOutputStream(urlConnection);
                     callListenerIfPresent(didRequestFinishedListener);
                 }
-                else if (destinationPath != null)
+                else if (urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK 
+                        && destinationPath != null)
                 {
                     File fd = new File(destinationPath);
                     if (fd.isDirectory())
