@@ -197,7 +197,6 @@ public class MEHTTPRequest {
                     saveToDestination(tempFd, urlConnection, shouldAllowResumeDownloads);
                     if(tempFd.length() == urlConnection.getContentLength()) {
                         tempFd.renameTo(fd);
-                        callListenerIfPresent(didRequestFinishedListener);
                     } else {
                         prepareResponse(urlConnection);
                         throw new PartiallyDownloadedException(
@@ -220,6 +219,7 @@ public class MEHTTPRequest {
                     }
                     responseData = writer.toString();
                 }
+
                 prepareResponse(urlConnection);
                 callListenerIfPresent(didRequestFinishedListener);
             }
