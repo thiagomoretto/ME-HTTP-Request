@@ -19,15 +19,28 @@ import java.util.List;
 import java.util.Map;
 
 public class MEHTTPRequest {
+    public class PartiallyDownloadedException extends Exception {
+        private static final long serialVersionUID = -3031107770544555842L;
+        private long bytesRemaining;
+        public PartiallyDownloadedException(long bytesRemaining) {
+            this.bytesRemaining = bytesRemaining;
+        }
+        public long getBytesRemaining() {
+            return bytesRemaining;
+        }
+    }
+    
     public interface Listener {
         public void on(MEHTTPRequest request);
     }
 
     final int maxRedirectionsCount = 5; // TODO: use it.
+    public static final String DOWNLOAD_PATH_APPENDIX = "-medownload";
 
     // request
     URL url;
     String destinationPath = null;
+    String temporaryDestinationPath = null;
     OutputStream destinationOutputStream = null;
     MEHTTPRequest.Listener didRequestFinishedListener = null;
     MEHTTPRequest.Listener didRequestFailedListener = null;
@@ -67,12 +80,17 @@ public class MEHTTPRequest {
 
     public MEHTTPRequest setDownloadDestinationPath(String path) {
         this.destinationOutputStream = null;
-        this.destinationPath = path;
+        if (path != null)
+        {
+            this.destinationPath = path;
+            this.temporaryDestinationPath = path + DOWNLOAD_PATH_APPENDIX;
+        }
         return this;
     }
 
     public MEHTTPRequest setDestinationOutputStream(OutputStream destinationOutputStream) {
         this.destinationPath = null;
+        this.temporaryDestinationPath = null;
         this.destinationOutputStream = destinationOutputStream;
         return this;
     }
@@ -133,8 +151,9 @@ public class MEHTTPRequest {
                 urlConnection
                     .addRequestProperty(requestHeaderName, requestAdditionalHeaders.get(requestHeaderName));
 
-            if (shouldAllowResumeDownloads && destinationPath != null) {
-                File fd = new File(destinationPath);
+            if (shouldAllowResumeDownloads && temporaryDestinationPath != null)
+            {
+                File fd = new File(temporaryDestinationPath);
                 if (fd.isFile())
                     urlConnection.setRequestProperty("Range", "bytes=" + fd.length() + "-");
             }
@@ -172,8 +191,16 @@ public class MEHTTPRequest {
                     File fd = new File(destinationPath);
                     if (fd.isDirectory())
                         throw new Exception("Destination path is a directory. Please, append a file name.");
-                    saveToDestination(fd, urlConnection, shouldAllowResumeDownloads);
-                    callListenerIfPresent(didRequestFinishedListener);
+                    File tempFd = new File(temporaryDestinationPath);
+                    saveToDestination(tempFd, urlConnection, shouldAllowResumeDownloads);
+                    if(tempFd.length() == urlConnection.getContentLength()) {
+                        tempFd.renameTo(fd);
+                        callListenerIfPresent(didRequestFinishedListener);
+                    } else {
+                        prepareResponse(urlConnection);
+                        throw new PartiallyDownloadedException(
+                                        Math.abs(urlConnection.getContentLength() - tempFd.length()));
+                    }
                 }
                 else
                 {

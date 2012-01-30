@@ -81,6 +81,7 @@ public class HttpTestServer {
                 if (_mockFile != null)
                 {
                     File fd = new File(_mockFile);
+                    response.setContentLength((int) fd.length());
                     FileInputStream fis = new FileInputStream(fd);
                     byte[] b = new byte[1];
                     OutputStream os = response.getOutputStream();

@@ -15,10 +15,12 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import br.eng.moretto.me.MEHTTPRequest;
+import br.eng.moretto.me.MEHTTPRequest.PartiallyDownloadedException;
 
 public class MEHTTPRequestTests {
     String urlString = "http://localhost:50036";
 
+    Exception lastException = null;
     boolean stdOutRequestDidRedirectedListenerWasCalled,
             stdOutRequestDidFinishedListenerWasCalled,
             stdErrRequestDidFailedListenerWasCalled;
@@ -40,6 +42,7 @@ public class MEHTTPRequestTests {
         @Override
         public void on(MEHTTPRequest request) {
             stdErrRequestDidFailedListenerWasCalled = true;
+            lastException = request.getException();
             request.getException().printStackTrace(System.err);
         }
     };
@@ -54,6 +57,7 @@ public class MEHTTPRequestTests {
 
     @Before
     public void setup() throws Exception {
+        lastException = null;
         stdOutRequestDidRedirectedListenerWasCalled = false;
         stdOutRequestDidFinishedListenerWasCalled = false;
         stdErrRequestDidFailedListenerWasCalled = false;
@@ -121,6 +125,10 @@ public class MEHTTPRequestTests {
         httpTestServer.setMockResponseFile("fixtures/internet.jpg");
         httpTestServer.setMockStopDownloadAtByte(1024);
 
+        File fi = new File("fixtures/internet.jpg");
+        File fd = new File("/tmp/temp_file_resume.jpg" + MEHTTPRequest.DOWNLOAD_PATH_APPENDIX);
+        fd.delete();
+
         URL testURL = new URL(urlString);
         MEHTTPRequest request = new MEHTTPRequest(testURL);
         request .setShouldFollowRedirects(true)
@@ -130,13 +138,13 @@ public class MEHTTPRequestTests {
                 .setDownloadDestinationPath("/tmp/temp_file_resume.jpg")
                 .startSynchronous();
 
-        File fi = new File("fixtures/internet.jpg");
-        File fd = new File("/tmp/temp_file_resume.jpg");
+        fd = new File("/tmp/temp_file_resume.jpg" + MEHTTPRequest.DOWNLOAD_PATH_APPENDIX);
 
         Assert.assertEquals(200, request.getResponseCode());
         Assert.assertTrue(fd.exists());
         Assert.assertEquals(1024, fd.length());
-        Assert.assertTrue(stdOutRequestDidFinishedListenerWasCalled);
+        Assert.assertTrue(stdErrRequestDidFailedListenerWasCalled);
+        Assert.assertEquals(((PartiallyDownloadedException) lastException).getBytesRemaining(), fi.length() - 1024);
 
         httpTestServer.setMockStopDownloadAtByte(-1);
 
