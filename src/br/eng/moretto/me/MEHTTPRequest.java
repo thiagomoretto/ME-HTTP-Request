@@ -3,6 +3,7 @@ package br.eng.moretto.me;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -49,6 +50,8 @@ public class MEHTTPRequest {
     boolean shouldAllowResumeDownloads = false;
     int redirectionsCount = 0;
     private Map<String, String> requestAdditionalHeaders = new HashMap<String, String>();
+    private String method = "GET";
+    private String urlParameters;
 
     // response
     Exception exception = null;
@@ -61,6 +64,16 @@ public class MEHTTPRequest {
 
     public MEHTTPRequest(URL url) {
         this.url = url;
+    }
+    
+    public MEHTTPRequest setMethod(String method) {
+        this.method = method;
+        return this;
+    }
+    
+    public MEHTTPRequest setUrlParameters(String urlParameters) {
+        this.urlParameters = urlParameters;
+        return this;
     }
 
     public MEHTTPRequest setDidRequestRedirectedListener(MEHTTPRequest.Listener listener) {
@@ -145,8 +158,18 @@ public class MEHTTPRequest {
     private void makeRequest(URL requestURL) {
         try
         {
+            boolean urlParametersPresent = urlParameters != null && !"".equals(urlParameters);
             HttpURLConnection urlConnection = (HttpURLConnection) requestURL.openConnection();
             urlConnection.setInstanceFollowRedirects(false);
+            urlConnection.setRequestMethod(method);
+            
+            if("POST".equals(method) && urlParametersPresent) {
+                urlConnection.setRequestProperty("Content-Length", "" + Integer.toString(urlParameters.getBytes().length));
+                urlConnection.setUseCaches(false);
+                urlConnection.setDoInput(true);
+                urlConnection.setDoOutput(true);
+            }
+            
             for (String requestHeaderName : requestAdditionalHeaders.keySet())
                 urlConnection
                     .addRequestProperty(requestHeaderName, requestAdditionalHeaders.get(requestHeaderName));
@@ -158,8 +181,15 @@ public class MEHTTPRequest {
                     urlConnection.setRequestProperty("Range", "bytes=" + fd.length() + "-");
             }
 
+            if(urlParametersPresent) {
+                DataOutputStream wr = new DataOutputStream(urlConnection.getOutputStream ());
+                wr.writeBytes(urlParameters);
+                wr.flush();
+                wr.close();
+            }
+            
             urlConnection.connect();
-
+            
             if (shouldFollowRedirects &&
                     urlConnection.getResponseCode() == HttpURLConnection.HTTP_MOVED_TEMP ||
                     urlConnection.getResponseCode() == HttpURLConnection.HTTP_MOVED_PERM ||

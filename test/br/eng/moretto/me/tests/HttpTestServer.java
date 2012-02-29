@@ -66,6 +66,7 @@ public class HttpTestServer {
 
             public void handle(String target, HttpServletRequest request, HttpServletResponse response, int dispatch) throws IOException, ServletException {
                 Request baseRequest = request instanceof Request ? (Request) request : HttpConnection.getCurrentConnection().getRequest();
+                
                 setResponseBody(getMockResponseData());
                 response.setStatus(_mockResponseCode);
                 if (_mockContentType != null)

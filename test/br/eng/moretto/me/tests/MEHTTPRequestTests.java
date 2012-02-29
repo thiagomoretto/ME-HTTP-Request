@@ -3,8 +3,10 @@ package br.eng.moretto.me.tests;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 
@@ -182,6 +184,29 @@ public class MEHTTPRequestTests {
 
         Assert.assertEquals(200, request.getResponseCode());
         Assert.assertTrue(new File("/tmp/temp_file_os").exists());
+        Assert.assertTrue(stdOutRequestDidFinishedListenerWasCalled);
+    }
+    
+    @Test
+    public void shouldMakePostRequest() throws MalformedURLException, UnsupportedEncodingException {
+        httpTestServer.setMockResponseCode(201);
+        httpTestServer.setMockResponseData("MY OMG FORM DATA");
+        httpTestServer.setMockContentType(null);
+        httpTestServer.setMockResponseFile(null);
+        
+        //URL testURL = new URL("http://localhost:4567/pah");
+        URL testURL = new URL(urlString);
+        MEHTTPRequest request = new MEHTTPRequest(testURL);
+        request .setShouldFollowRedirects(true)
+                .setMethod("POST")
+                .addHeader("Content-Type", "application/x-www-form-urlencoded")
+                .setUrlParameters("name=" + URLEncoder.encode("José Fino da Silva 140%", "UTF-8"))
+                .setDidRequestRedirectedListener(stdOutRequestDidRedirectedListener)
+                .setDidRequestFinishedListener(stdOutRequestDidFinishedListener)
+                .setDidRequestFailedListener(stdErrRequestDidFailedListener)
+                .startSynchronous();
+        
+        Assert.assertEquals(201, request.getResponseCode());
         Assert.assertTrue(stdOutRequestDidFinishedListenerWasCalled);
     }
 
